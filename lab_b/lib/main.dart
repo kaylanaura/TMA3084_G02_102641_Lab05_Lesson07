@@ -45,6 +45,28 @@ class _CarTablePageState extends State<CarTablePage> {
   int? _sortColumnIndex;
   bool _sortAscending = true;
 
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  // Cars matching the search text, in the current sort order.
+  List<Car> get _filteredCars {
+    final q = _query.trim().toLowerCase();
+    if (q.isEmpty) return _cars;
+    return _cars
+        .where(
+          (car) =>
+              car.make.toLowerCase().contains(q) ||
+              car.model.toLowerCase().contains(q),
+        )
+        .toList();
+  }
+
   void _sort<T extends Comparable>(
     T Function(Car car) getField,
     int columnIndex,
@@ -65,43 +87,85 @@ class _CarTablePageState extends State<CarTablePage> {
 
   @override
   Widget build(BuildContext context) {
+    final filtered = _filteredCars;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Car List')),
-      body: SingleChildScrollView(
-        scrollDirection: Axis.vertical,
-        child: SizedBox(
-          width: double.infinity,
-          child: DataTable(
-            sortColumnIndex: _sortColumnIndex,
-            sortAscending: _sortAscending,
-            columns: [
-              DataColumn(
-                label: const Text('Car Make'),
-                onSort: (i, asc) => _sort<String>((car) => car.make, i, asc),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: 'Search by make or model',
+                prefixIcon: const Icon(Icons.search),
+                border: const OutlineInputBorder(),
+                suffixIcon: _query.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _query = '');
+                        },
+                      ),
               ),
-              DataColumn(
-                label: const Text('Model'),
-                onSort: (i, asc) => _sort<String>((car) => car.model, i, asc),
-              ),
-              DataColumn(
-                label: const Text('Price (RM)'),
-                numeric: true,
-                onSort: (i, asc) => _sort<num>((car) => car.price, i, asc),
-              ),
-            ],
-            rows: _cars
-                .map(
-                  (car) => DataRow(
-                    cells: [
-                      DataCell(Text(car.make)),
-                      DataCell(Text(car.model)),
-                      DataCell(Text(car.price.toString())),
-                    ],
-                  ),
-                )
-                .toList(),
+              onChanged: (value) => setState(() => _query = value),
+            ),
           ),
-        ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '${filtered.length} of ${_cars.length} cars match',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.vertical,
+              child: SizedBox(
+                width: double.infinity,
+                child: DataTable(
+                  sortColumnIndex: _sortColumnIndex,
+                  sortAscending: _sortAscending,
+                  columns: [
+                    DataColumn(
+                      label: const Text('Car Make'),
+                      onSort: (i, asc) =>
+                          _sort<String>((car) => car.make, i, asc),
+                    ),
+                    DataColumn(
+                      label: const Text('Model'),
+                      onSort: (i, asc) =>
+                          _sort<String>((car) => car.model, i, asc),
+                    ),
+                    DataColumn(
+                      label: const Text('Price (RM)'),
+                      numeric: true,
+                      onSort: (i, asc) =>
+                          _sort<num>((car) => car.price, i, asc),
+                    ),
+                  ],
+                  rows: filtered
+                      .map(
+                        (car) => DataRow(
+                          cells: [
+                            DataCell(Text(car.make)),
+                            DataCell(Text(car.model)),
+                            DataCell(Text(car.price.toString())),
+                          ],
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
